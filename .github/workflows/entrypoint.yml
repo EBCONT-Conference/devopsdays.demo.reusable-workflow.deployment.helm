@@ -1,0 +1,76 @@
+name: Deployment
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    name: Docker - build & push
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Parse YAML configuration
+        id: configuration
+        uses: EBCONT-Conference/devopsdays.demo.action.configuration-parser@v1
+        with:
+          schema: helm
+
+      - name: Validate JSON
+        env:
+          JSON: ${{ steps.configuration.outputs.json }}
+        shell: python
+        run: |
+          import json
+          import os
+          import sys
+          
+          print("Parsing JSON configuration...")
+          
+          raw_data = os.environ.get("JSON", "{}")
+          
+          try:
+              parsed = json.loads(raw_data)
+              if not parsed:
+                  print("::error::The JSON output is empty!")
+                  sys.exit(1)
+              print("Successfully parsed JSON configuration!")
+              print(f"::debug::Resulting JSON configuration:\n{json.dumps(parsed, indent=2)}")
+          except json.JSONDecodeError:
+              print("::error::JSON configuration is malformed and can not be parsed!")
+              sys.exit(1)
+
+      - name: Determine tag
+        id: name
+        run: |
+          TAG="${{ github.ref_name }}"
+          SHA="${{ github.sha }}"
+          IMAGE_TAG=""
+
+          if [[ "$TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            IMAGE_TAG="${TAG#v}"
+            echo "IMAGE_TAG is set to $IMAGE_TAG via tag"
+          else
+            IMAGE_TAG="sha-${SHA:0:7}"
+            echo "IMAGE_TAG is set to $IMAGE_TAG via branch (first eight chars of commit hash)"
+          fi
+          
+          export IMAGE_TAG=$IMAGE_TAG
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Print deployment summary
+        run: |
+          echo "## Deployment summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "Following parameters will be used for the deployment:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Deploy**: true" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Kubeconfig is valid**: true" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Environment**: ${{ inputs.environment || 'dev' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Namespace**: ${{ fromJSON(steps.configuration.outputs.json).namespace }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Path to Helm chart**: ${{ fromJSON(needs.environment.outputs.json).path || 'helm' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Image tag**: ${{ steps.name.outputs.image_tag }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "*Image tag value is saved to the environment variable HELM_TAG and can be used in your values.yaml file via \${HELM_TAG} syntax." >> "$GITHUB_STEP_SUMMARY"

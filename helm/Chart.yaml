@@ -1,0 +1,4 @@
+apiVersion: v2
+name: devopsdays.demo.reusable-workflow.deployment.helm
+description: Helm chart for devopsdays.demo.reusable-workflow.deployment.helm
+version: 1.0.0
