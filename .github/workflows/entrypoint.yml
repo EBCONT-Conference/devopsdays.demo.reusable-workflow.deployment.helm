@@ -2,6 +2,11 @@ name: Deployment
 
 on:
   workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -71,6 +76,6 @@ jobs:
           echo "- **Kubeconfig is valid**: true" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Environment**: ${{ inputs.environment || 'dev' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Namespace**: ${{ fromJSON(steps.configuration.outputs.json).namespace }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Path to Helm chart**: ${{ fromJSON(needs.environment.outputs.json).path || 'helm' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Path to Helm chart**: ${{ fromJSON(steps.configuration.outputs.json).path || 'helm' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Image tag**: ${{ steps.name.outputs.image_tag }}" >> "$GITHUB_STEP_SUMMARY"
           echo "*Image tag value is saved to the environment variable HELM_TAG and can be used in your values.yaml file via \${HELM_TAG} syntax." >> "$GITHUB_STEP_SUMMARY"
